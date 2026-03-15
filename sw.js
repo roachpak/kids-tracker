@@ -1,4 +1,4 @@
-const CACHE_NAME = 'kids-tracker-v6';
+const CACHE_NAME = 'kids-tracker-v7';
 const ASSETS = [
     './index.html',
     './manifest.json'
@@ -21,8 +21,10 @@ self.addEventListener('activate', event => {
 });
 
 self.addEventListener('fetch', event => {
-    // ntfy 요청은 캐시하지 않음
+    // ntfy, firebase 요청은 캐시하지 않음
     if (event.request.url.includes('ntfy.sh')) return;
+    if (event.request.url.includes('firebaseio.com')) return;
+    if (event.request.url.includes('googleapis.com')) return;
 
     event.respondWith(
         fetch(event.request).catch(() => caches.match(event.request))
