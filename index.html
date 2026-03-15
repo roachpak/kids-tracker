@@ -1,0 +1,1904 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#667eea">
+    <link rel="manifest" href="./manifest.json">
+    <link rel="apple-touch-icon" href="./icon-192.png">
+    <title>우리 아이 체크</title>
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+        body {
+            font-family: -apple-system, 'Apple SD Gothic Neo', 'Segoe UI', sans-serif;
+            min-height: 100vh;
+            min-height: 100dvh;
+            padding: 16px;
+            padding-top: env(safe-area-inset-top, 16px);
+            padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 90px);
+            transition: background 0.5s;
+        }
+
+        /* ===== 아이 모드 테마 ===== */
+        body.child-mode {
+            background: linear-gradient(180deg, #e0f7fa 0%, #fff9c4 50%, #f3e5f5 100%);
+            background-attachment: fixed;
+        }
+
+        body.child-mode h1 { color: #ff6f00; }
+
+        body.child-mode .mode-indicator {
+            background: linear-gradient(135deg, #4fc3f7, #81c784);
+            color: white;
+            text-align: center;
+            padding: 8px;
+            border-radius: 20px;
+            margin-bottom: 12px;
+            font-weight: 700;
+            font-size: 1rem;
+            letter-spacing: 1px;
+            box-shadow: 0 3px 10px rgba(79, 195, 247, 0.3);
+        }
+
+        body.child-mode .section {
+            background: rgba(255,255,255,0.9);
+            border: 2px solid #b3e5fc;
+        }
+
+        body.child-mode .checkin-btn {
+            border: 2px solid #b3e5fc;
+            background: rgba(255,255,255,0.9);
+        }
+
+        body.child-mode .checkin-btn .icon { font-size: 2.4rem; }
+        body.child-mode .checkin-btn .label { font-size: 0.9rem; }
+
+        body.child-mode .activity-btn {
+            border: 2px solid #c8e6c9;
+            background: rgba(255,255,255,0.9);
+        }
+
+        body.child-mode .tab-btn { font-size: 1.05rem; }
+
+        /* ===== 부모님 모드 테마 ===== */
+        body.parent-mode {
+            background: #f0f4f8;
+        }
+
+        body.parent-mode .mode-indicator {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            text-align: center;
+            padding: 8px;
+            border-radius: 20px;
+            margin-bottom: 12px;
+            font-weight: 600;
+            font-size: 0.9rem;
+            box-shadow: 0 3px 10px rgba(102, 126, 234, 0.3);
+        }
+
+        body.parent-mode .section {
+            background: white;
+        }
+
+        /* ===== 모드 전환 버튼 ===== */
+        .mode-switch-area {
+            text-align: center;
+            margin-bottom: 10px;
+        }
+
+        .mode-switch-btn {
+            padding: 6px 14px;
+            border: 1px solid #cbd5e0;
+            border-radius: 16px;
+            background: rgba(255,255,255,0.7);
+            cursor: pointer;
+            font-size: 0.78rem;
+            color: #a0aec0;
+            transition: all 0.2s;
+        }
+
+        body.child-mode .mode-switch-btn {
+            border-color: #b3e5fc;
+            color: #90a4ae;
+        }
+
+        /* ===== 공통 ===== */
+        h1 {
+            text-align: center;
+            font-size: 1.4rem;
+            padding: 12px 0;
+            transition: color 0.3s;
+        }
+
+        .mode-indicator { transition: all 0.3s; }
+
+        .notify-banner {
+            background: #fff3cd; border: 1px solid #ffc107; border-radius: 12px;
+            padding: 10px 14px; margin-bottom: 12px; font-size: 0.85rem;
+            color: #856404; display: flex; align-items: center; gap: 8px; cursor: pointer;
+        }
+        .notify-banner.connected { background: #d4edda; border-color: #28a745; color: #155724; }
+
+        .tabs { display: flex; gap: 8px; margin-bottom: 16px; justify-content: center; flex-wrap: wrap; }
+
+        .tab-btn {
+            padding: 10px 20px; border: none; border-radius: 20px; font-size: 1rem;
+            font-weight: 600; cursor: pointer; transition: all 0.3s;
+            background: #e2e8f0; color: #718096;
+        }
+        .tab-btn.active { background: #667eea; color: white; box-shadow: 0 4px 12px rgba(102,126,234,0.4); }
+        .tab-btn:nth-child(2).active { background: #ed64a6; box-shadow: 0 4px 12px rgba(237,100,166,0.4); }
+        .tab-btn:nth-child(3).active { background: #38b2ac; box-shadow: 0 4px 12px rgba(56,178,172,0.4); }
+
+        .status-cards { display: flex; gap: 12px; margin-bottom: 16px; }
+
+        .status-card {
+            flex: 1; background: white; border-radius: 16px; padding: 14px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08); text-align: center;
+        }
+        body.child-mode .status-card { background: rgba(255,255,255,0.9); border: 2px solid #e1f5fe; }
+
+        .status-card .name { font-weight: 700; font-size: 1.05rem; margin-bottom: 4px; }
+        .status-card .status {
+            display: inline-block; padding: 4px 12px; border-radius: 12px;
+            font-size: 0.82rem; font-weight: 600;
+        }
+        .status-card .activity-line { font-size: 0.78rem; color: #718096; margin-top: 4px; }
+        .status-card .time { font-size: 0.75rem; color: #a0aec0; margin-top: 2px; }
+
+        .status-home { background: #c6f6d5; color: #276749; }
+        .status-academy { background: #bee3f8; color: #2a4365; }
+        .status-school { background: #fefcbf; color: #744210; }
+        .status-moving { background: #fed7e2; color: #97266d; }
+        .status-unknown { background: #e2e8f0; color: #718096; }
+        .status-other { background: #e9d8fd; color: #553c9a; }
+
+        .child1-accent { border-top: 4px solid #667eea; }
+        .child2-accent { border-top: 4px solid #ed64a6; }
+
+        .child-panel { display: none; }
+        .child-panel.active { display: block; }
+
+        .section {
+            border-radius: 16px; padding: 18px; margin-bottom: 14px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08); transition: all 0.3s;
+        }
+
+        .section-title {
+            font-size: 1.05rem; font-weight: 700; color: #2d3748;
+            margin-bottom: 12px; display: flex; align-items: center; gap: 8px;
+        }
+
+        /* 체크인 + 활동 버튼 */
+        .checkin-buttons { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+
+        .checkin-btn, .activity-btn {
+            padding: 16px 8px; border: 2px solid #e2e8f0; border-radius: 14px;
+            background: white; cursor: pointer; transition: all 0.2s; text-align: center;
+            -webkit-user-select: none; user-select: none;
+        }
+        .checkin-btn:active, .activity-btn:active { transform: scale(0.93); }
+        .checkin-btn .icon, .activity-btn .icon { font-size: 2rem; display: block; margin-bottom: 6px; }
+        .checkin-btn .label, .activity-btn .label { font-weight: 600; color: #4a5568; font-size: 0.85rem; }
+
+        .checkin-btn.checked, .activity-btn.checked {
+            border-color: #48bb78; background: #f0fff4;
+            animation: checkPulse 0.5s ease;
+        }
+        @keyframes checkPulse { 50% { transform: scale(1.05); } }
+
+        .activity-buttons { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-top: 10px; }
+        .activity-btn { border-color: #e8f5e9; }
+        .activity-btn:active { background: #e8f5e9; }
+
+        .subsection-label {
+            font-size: 0.85rem; font-weight: 600; color: #a0aec0; margin-top: 14px; margin-bottom: 8px;
+            padding-left: 2px;
+        }
+
+        /* 토스트 */
+        .notify-sent {
+            position: fixed; top: 20px; left: 50%; transform: translateX(-50%);
+            background: #48bb78; color: white; padding: 10px 20px; border-radius: 20px;
+            font-size: 0.9rem; font-weight: 600; z-index: 200; opacity: 0;
+            transition: opacity 0.3s; pointer-events: none;
+            box-shadow: 0 4px 12px rgba(72,187,120,0.4);
+        }
+        .notify-sent.show { opacity: 1; }
+
+        /* 시간표 */
+        .timetable { width: 100%; border-collapse: collapse; table-layout: fixed; }
+        .timetable th { background: #f7fafc; padding: 10px 6px; font-size: 0.8rem; color: #718096; text-align: left; border-bottom: 2px solid #e2e8f0; vertical-align: middle; }
+        body.child-mode .timetable th:nth-child(1) { width: 30%; }
+        body.child-mode .timetable th:nth-child(2) { width: 40%; }
+        body.child-mode .timetable th:nth-child(3) { width: 30%; }
+        body.parent-mode .timetable th:nth-child(1) { width: 28%; }
+        body.parent-mode .timetable th:nth-child(2) { width: 32%; }
+        body.parent-mode .timetable th:nth-child(3) { width: 25%; }
+        body.parent-mode .timetable th:nth-child(4) { width: 15%; }
+        .timetable td { padding: 10px 6px; border-bottom: 1px solid #f0f0f0; font-size: 0.85rem; color: #4a5568; vertical-align: middle; word-break: keep-all; }
+        .timetable tr.current { background: #ebf8ff; }
+        .timetable .time-col { color: #a0aec0; font-size: 0.78rem; white-space: nowrap; }
+        .delete-schedule-btn { background: none; border: none; color: #fc8181; cursor: pointer; font-size: 1rem; padding: 4px 6px; vertical-align: middle; }
+
+        /* 기록 */
+        .log-item { display: flex; align-items: center; padding: 10px 0; border-bottom: 1px solid #f0f0f0; gap: 10px; }
+        .log-item:last-child { border-bottom: none; }
+        .log-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+        .log-dot.home { background: #48bb78; } .log-dot.academy { background: #4299e1; }
+        .log-dot.school { background: #ecc94b; } .log-dot.moving { background: #ed64a6; }
+        .log-dot.other { background: #9f7aea; } .log-dot.activity { background: #68d391; }
+        .log-text { flex: 1; font-size: 0.85rem; color: #4a5568; }
+        .log-time { font-size: 0.78rem; color: #a0aec0; white-space: nowrap; }
+
+        .btn { padding: 8px 16px; border: none; border-radius: 8px; font-size: 0.9rem; font-weight: 600; cursor: pointer; transition: all 0.2s; }
+        .btn-primary { background: #667eea; color: white; }
+        .btn-danger { background: #fc8181; color: white; }
+        .btn-sm { padding: 5px 10px; font-size: 0.8rem; }
+        .btn:active { opacity: 0.85; transform: scale(0.97); }
+
+        .add-schedule-form { background: #f7fafc; border-radius: 12px; padding: 14px; margin-top: 12px; }
+        .add-schedule-form .form-row { display: flex; gap: 4px; margin-bottom: 8px; flex-wrap: nowrap; align-items: center; }
+        .add-schedule-form input { padding: 10px; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 0.95rem; }
+        .time-select { padding: 8px 2px; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 0.9rem; background: white; min-width: 0; flex: 1; text-align: center; }
+        .sched-type-btn { background: #e2e8f0; color: #718096; border: none; }
+        .sched-type-btn.active { background: #667eea; color: white; }
+        .date-badge { display: inline-block; background: #fefcbf; color: #744210; font-size: 0.7rem; padding: 1px 6px; border-radius: 8px; margin-left: 4px; font-weight: 600; }
+
+        .day-selector { display: flex; gap: 0; }
+        .day-chip { flex: 1; padding: 8px 0; border-radius: 0; border: 1px solid #e2e8f0; background: white; cursor: pointer; font-size: 0.85rem; transition: all 0.2s; -webkit-user-select: none; user-select: none; text-align: center; margin-left: -1px; }
+        .day-chip:first-child { border-radius: 8px 0 0 8px; margin-left: 0; }
+        .day-chip:last-child { border-radius: 0 8px 8px 0; }
+        .day-chip.selected { background: #667eea; color: white; border-color: #667eea; z-index: 1; position: relative; }
+
+        .modal-overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 100; justify-content: center; align-items: center; padding: 20px; }
+        .modal-overlay.show { display: flex; }
+        .modal { background: white; border-radius: 16px; padding: 24px; max-width: 420px; width: 100%; max-height: 85vh; overflow-y: auto; }
+        .modal h2 { margin-bottom: 16px; color: #2d3748; font-size: 1.15rem; }
+        .modal label { display: block; margin-bottom: 4px; font-weight: 600; color: #4a5568; font-size: 0.9rem; }
+        .modal input { width: 100%; padding: 11px; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 1rem; margin-bottom: 12px; }
+        .modal-buttons { display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px; }
+        .modal .hint { font-size: 0.8rem; color: #a0aec0; margin-bottom: 12px; line-height: 1.5; }
+
+        .no-data { text-align: center; color: #a0aec0; padding: 20px; font-size: 0.85rem; }
+
+        .day-filter { display: flex; gap: 0; margin-bottom: 12px; }
+        .day-filter-btn { flex: 1; padding: 6px 2px; border: 1px solid #e2e8f0; background: white; cursor: pointer; font-size: 0.75rem; font-weight: 600; color: #718096; white-space: nowrap; text-align: center; margin-left: -1px; }
+        .day-filter-btn:first-child { border-radius: 8px 0 0 8px; margin-left: 0; }
+        .day-filter-btn:last-child { border-radius: 0 8px 8px 0; }
+        .day-filter-btn.active { background: #667eea; color: white; border-color: #667eea; z-index: 1; position: relative; }
+
+
+        .bottom-bar { text-align: center; margin-top: 16px; display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+
+        /* 캘린더 */
+        /* 월간 캘린더 */
+        .cal-nav { display: flex; align-items: center; justify-content: center; gap: 16px; margin-bottom: 12px; }
+        .cal-nav-btn { background: none; border: 1px solid #e2e8f0; border-radius: 8px; padding: 6px 12px; cursor: pointer; font-size: 1rem; color: #718096; }
+        .cal-nav-btn:active { background: #edf2f7; }
+        .cal-month-label { font-size: 1.1rem; font-weight: 700; color: #2d3748; min-width: 120px; text-align: center; }
+        .cal-today-btn { background: #667eea; color: white; border: none; border-radius: 8px; padding: 5px 12px; cursor: pointer; font-size: 0.8rem; font-weight: 600; }
+
+        .month-calendar { width: 100%; border-collapse: collapse; table-layout: fixed; }
+        .month-calendar th { background: #f7fafc; padding: 6px 2px; text-align: center; font-size: 0.75rem; color: #718096; border-bottom: 2px solid #e2e8f0; }
+        .month-calendar th.sun { color: #e53e3e; }
+        .month-calendar th.sat { color: #3182ce; }
+        .month-calendar td { border: 1px solid #f0f0f0; padding: 2px; vertical-align: top; height: 70px; font-size: 0.72rem; }
+        .month-calendar td.other-month { background: #fafafa; }
+        .month-calendar td.today { background: #ebf8ff; }
+
+        .cal-day-num { font-size: 0.75rem; font-weight: 600; color: #4a5568; padding: 2px 4px; }
+        .cal-day-num.sun { color: #e53e3e; }
+        .cal-day-num.sat { color: #3182ce; }
+        .cal-day-num.today { background: #667eea; color: white; border-radius: 50%; width: 22px; height: 22px; display: inline-flex; align-items: center; justify-content: center; }
+        .cal-day-num.other { color: #cbd5e0; }
+
+        .cal-event { border-left: 3px solid #667eea; border-radius: 3px; padding: 1px 4px; margin-bottom: 1px; font-size: 0.65rem; color: #2d3748; line-height: 1.3; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; cursor: default; }
+        .cal-event.child-0 { border-left-color: #667eea; background: #ebf4ff; }
+        .cal-event.child-1 { border-left-color: #ed64a6; background: #fff5f7; }
+        .cal-event .cal-name { font-weight: 600; }
+        .cal-event .cal-time { color: #a0aec0; }
+
+        .calendar-legend { display: flex; gap: 12px; margin-top: 10px; justify-content: center; font-size: 0.78rem; color: #718096; }
+        .legend-dot { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 4px; vertical-align: middle; }
+
+        @media (max-width: 400px) {
+            .month-calendar td { height: 55px; }
+            .cal-event { font-size: 0.6rem; }
+        }
+
+        .month-calendar td.clickable { cursor: pointer; }
+        .month-calendar td.clickable:active { background: #edf2f7; }
+
+        /* 날짜 상세 모달 */
+        .day-detail-title { font-size: 1.05rem; font-weight: 700; color: #2d3748; margin-bottom: 14px; }
+        .day-detail-event { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid #f0f0f0; }
+        .day-detail-event:last-child { border-bottom: none; }
+        .day-detail-dot { width: 10px; height: 10px; border-radius: 3px; flex-shrink: 0; }
+        .day-detail-dot.child-0 { background: #667eea; }
+        .day-detail-dot.child-1 { background: #ed64a6; }
+        .day-detail-info { flex: 1; }
+        .day-detail-name { font-weight: 600; font-size: 0.95rem; color: #2d3748; }
+        .day-detail-meta { font-size: 0.8rem; color: #a0aec0; margin-top: 2px; }
+
+        /* 숙제 날짜 표시 */
+        .hw-date-label { font-size: 0.78rem; color: #a0aec0; margin-bottom: 8px; }
+
+        /* 부모님 호출 버튼 */
+        .call-parent-btn {
+            padding: 16px 8px; border: 2px solid #fed7e2; border-radius: 14px;
+            background: linear-gradient(135deg, #fff5f7, #ffe0e6); cursor: pointer;
+            transition: all 0.2s; text-align: center;
+            -webkit-user-select: none; user-select: none;
+        }
+        .call-parent-btn:active { transform: scale(0.93); background: #fed7e2; }
+        .call-parent-btn .icon { font-size: 2rem; display: block; margin-bottom: 6px; }
+        .call-parent-btn .label { font-weight: 700; color: #e53e3e; font-size: 0.85rem; }
+        body.child-mode .call-parent-btn { border: 2px solid #ffcdd2; }
+
+        /* 일정 수정/삭제 버튼 */
+        .edit-schedule-btn { background: none; border: none; color: #667eea; cursor: pointer; font-size: 0.85rem; padding: 4px 4px; vertical-align: middle; }
+        .sched-action-btns { white-space: nowrap; }
+
+        /* 알람 토글 */
+        .alarm-toggle { background: none; border: none; cursor: pointer; font-size: 0.9rem; padding: 2px 4px; vertical-align: middle; opacity: 0.4; }
+        .alarm-toggle.on { opacity: 1; }
+
+        /* 비밀번호 입력 */
+        .pin-dots { display: flex; gap: 12px; justify-content: center; margin: 16px 0; }
+        .pin-dot { width: 16px; height: 16px; border-radius: 50%; border: 2px solid #667eea; transition: all 0.2s; }
+        .pin-dot.filled { background: #667eea; }
+        .pin-pad { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; max-width: 240px; margin: 0 auto; }
+        .pin-key { padding: 14px; border: 1px solid #e2e8f0; border-radius: 12px; background: white; cursor: pointer; font-size: 1.2rem; font-weight: 600; text-align: center; transition: all 0.1s; color: #2d3748; }
+        .pin-key:active { background: #edf2f7; transform: scale(0.95); }
+        .pin-key.empty { visibility: hidden; }
+
+        /* 부모모드 전용 요소 숨기기 */
+        .parent-only { display: none; }
+        body.parent-mode .parent-only { display: block; }
+        body.parent-mode .bottom-bar .parent-only { display: inline-block; }
+        body.parent-mode th.parent-only,
+        body.parent-mode td.parent-only { display: table-cell; }
+
+        /* PWA */
+        .install-banner { display: none; background: linear-gradient(135deg, #667eea, #764ba2); color: white; border-radius: 12px; padding: 12px 16px; margin-bottom: 12px; font-size: 0.85rem; align-items: center; gap: 10px; }
+        .install-banner .close-install { margin-left: auto; background: rgba(255,255,255,0.3); border: none; color: white; border-radius: 50%; width: 24px; height: 24px; cursor: pointer; font-size: 0.8rem; }
+
+        /* 숙제 체크리스트 */
+        .hw-list { list-style: none; }
+        .hw-item {
+            display: flex; align-items: center; gap: 10px;
+            padding: 12px 0; border-bottom: 1px solid #f0f0f0;
+        }
+        .hw-item:last-child { border-bottom: none; }
+
+        .hw-checkbox {
+            width: 26px; height: 26px; border-radius: 50%;
+            border: 2px solid #cbd5e0; background: white;
+            cursor: pointer; display: flex; align-items: center;
+            justify-content: center; flex-shrink: 0;
+            transition: all 0.3s; font-size: 0.85rem;
+        }
+        .hw-checkbox.done {
+            background: #48bb78; border-color: #48bb78; color: white;
+        }
+        .hw-checkbox:active { transform: scale(0.9); }
+
+        .hw-text { flex: 1; font-size: 0.95rem; color: #4a5568; transition: all 0.3s; }
+        .hw-text.done { text-decoration: line-through; color: #a0aec0; }
+
+        .hw-delete {
+            background: none; border: none; color: #e2e8f0;
+            font-size: 1.1rem; cursor: pointer; padding: 0 4px;
+        }
+        .hw-delete:hover { color: #fc8181; }
+
+        .hw-add-row {
+            display: flex; gap: 8px; margin-top: 10px;
+        }
+        .hw-add-row input {
+            flex: 1; padding: 10px; border: 1px solid #e2e8f0;
+            border-radius: 8px; font-size: 0.95rem;
+        }
+
+        .hw-progress {
+            background: #edf2f7; border-radius: 10px; height: 8px;
+            margin-top: 10px; overflow: hidden;
+        }
+        .hw-progress-bar {
+            height: 100%; border-radius: 10px;
+            background: linear-gradient(90deg, #48bb78, #38b2ac);
+            transition: width 0.5s;
+        }
+        .hw-progress-text {
+            text-align: right; font-size: 0.75rem;
+            color: #a0aec0; margin-top: 4px;
+        }
+
+        .hw-done-msg {
+            text-align: center; padding: 16px;
+            font-size: 1.1rem; color: #48bb78; font-weight: 700;
+        }
+
+        @media (max-width: 400px) {
+            body { padding: 10px; }
+            .checkin-buttons, .activity-buttons { gap: 8px; }
+            .status-cards { flex-direction: column; gap: 8px; }
+            .checkin-btn, .activity-btn { padding: 14px 6px; }
+            .checkin-btn .icon, .activity-btn .icon { font-size: 1.6rem; }
+        }
+    </style>
+</head>
+<body class="child-mode">
+
+<h1>우리 아이 체크</h1>
+
+<!-- 모드 표시 -->
+<div class="mode-indicator" id="mode-indicator">아이 모드</div>
+
+<!-- 모드 전환 -->
+<div class="mode-switch-area">
+    <button class="mode-switch-btn" id="mode-switch-btn" onclick="requestModeSwitch()">부모님 모드로 전환</button>
+</div>
+
+<!-- 알림 배너 -->
+<div class="notify-banner" id="notify-banner" onclick="openSettings()">
+    알림이 설정되지 않았어요. 여기를 눌러 설정하세요!
+</div>
+
+<!-- PWA 배너 -->
+<div class="install-banner" id="install-banner">
+    <span>홈 화면에 추가하면 앱처럼 쓸 수 있어요!</span>
+    <button class="btn btn-sm" style="background:white;color:#667eea" id="install-btn">설치</button>
+    <button class="close-install" onclick="dismissInstall(event)">✕</button>
+</div>
+
+<!-- 토스트 -->
+<div class="notify-sent" id="notify-toast"></div>
+
+<!-- 상태 카드 -->
+<div class="status-cards">
+    <div class="status-card child1-accent" id="status-card-0">
+        <div class="name" id="status-name-0">첫째</div>
+        <div class="status status-unknown" id="status-badge-0">상태 없음</div>
+        <div class="activity-line" id="status-activity-0"></div>
+        <div class="time" id="status-time-0"></div>
+    </div>
+    <div class="status-card child2-accent" id="status-card-1">
+        <div class="name" id="status-name-1">둘째</div>
+        <div class="status status-unknown" id="status-badge-1">상태 없음</div>
+        <div class="activity-line" id="status-activity-1"></div>
+        <div class="time" id="status-time-1"></div>
+    </div>
+</div>
+
+<!-- 탭 -->
+<div class="tabs">
+    <button class="tab-btn active" onclick="switchTab(0)"><span id="tab-name-0">첫째</span></button>
+    <button class="tab-btn" onclick="switchTab(1)"><span id="tab-name-1">둘째</span></button>
+    <button class="tab-btn" onclick="switchTab(2)">전체 캘린더</button>
+</div>
+
+<!-- 아이 1 패널 -->
+<div class="child-panel active" id="panel-0">
+    <div class="section">
+        <div class="section-title">어디에 있나요?</div>
+        <div class="checkin-buttons">
+            <button class="checkin-btn" onclick="checkIn(0,'home',this)"><span class="icon">🏠</span><span class="label">집 도착</span></button>
+            <button class="checkin-btn" onclick="checkIn(0,'school',this)"><span class="icon">🏫</span><span class="label">학교</span></button>
+            <button class="checkin-btn" onclick="checkIn(0,'academy',this)"><span class="icon">📚</span><span class="label">학원</span></button>
+            <button class="checkin-btn" onclick="checkIn(0,'moving',this)"><span class="icon">🚌</span><span class="label">이동중</span></button>
+            <button class="checkin-btn" onclick="checkInOther(0,this)"><span class="icon">📍</span><span class="label">기타</span></button>
+            <button class="call-parent-btn" onclick="callParent(0)"><span class="icon">🔔</span><span class="label">부모님 호출</span></button>
+        </div>
+
+        <div class="subsection-label">지금 뭐하고 있어요?</div>
+        <div class="activity-buttons">
+            <button class="activity-btn" onclick="setActivity(0,'숙제하고 있어요',this)"><span class="icon">📝</span><span class="label">숙제</span></button>
+            <button class="activity-btn" onclick="setActivity(0,'놀고 있어요',this)"><span class="icon">🎮</span><span class="label">놀고 있어요</span></button>
+            <button class="activity-btn" onclick="setActivity(0,'밥 먹고 있어요',this)"><span class="icon">🍚</span><span class="label">밥 먹는 중</span></button>
+            <button class="activity-btn" onclick="setActivity(0,'수업 중이에요',this)"><span class="icon">✏️</span><span class="label">수업 중</span></button>
+            <button class="activity-btn" onclick="setActivity(0,'쉬고 있어요',this)"><span class="icon">😴</span><span class="label">쉬는 중</span></button>
+            <button class="activity-btn" onclick="setActivityOther(0,this)"><span class="icon">💬</span><span class="label">직접 입력</span></button>
+        </div>
+    </div>
+
+    <div class="section">
+        <div class="section-title">📅 시간표 <button class="btn btn-sm btn-primary parent-only" onclick="toggleScheduleForm(0)" style="margin-left:auto">+ 추가</button></div>
+        <div class="day-filter" id="day-filter-0"></div>
+        <table class="timetable"><thead><tr><th>시간</th><th>일정</th><th>장소</th><th class="parent-only"></th></tr></thead><tbody id="timetable-body-0"></tbody></table>
+        <div class="add-schedule-form parent-only" id="schedule-form-0" style="display:none">
+            <div class="form-row">
+                <select id="sched-start-h-0" class="time-select"><option value="">시</option></select>
+                <span style="line-height:2.5">:</span>
+                <select id="sched-start-m-0" class="time-select"><option value="">분</option></select>
+                <span style="line-height:2.5;margin:0 4px">~</span>
+                <select id="sched-end-h-0" class="time-select"><option value="">시</option></select>
+                <span style="line-height:2.5">:</span>
+                <select id="sched-end-m-0" class="time-select"><option value="">분</option></select>
+            </div>
+            <div class="form-row"><input type="text" id="sched-name-0" placeholder="일정 이름 (예: 수학학원)" style="flex:1"></div>
+            <div class="form-row"><input type="text" id="sched-place-0" placeholder="장소 (예: 학원)" style="flex:1"></div>
+            <div style="margin-bottom:8px">
+                <label style="font-size:0.85rem;margin-bottom:6px;display:block">반복 방식:</label>
+                <div class="form-row">
+                    <button class="btn btn-sm sched-type-btn active" id="sched-type-weekly-0" onclick="setSchedType(0,'weekly')">매주 반복</button>
+                    <button class="btn btn-sm sched-type-btn" id="sched-type-date-0" onclick="setSchedType(0,'date')">특정 날짜</button>
+                </div>
+            </div>
+            <div id="sched-weekly-area-0">
+                <label style="font-size:0.85rem;margin-bottom:6px;display:block">요일 선택:</label>
+                <div class="day-selector" id="day-selector-0">
+                    <span class="day-chip" data-day="월" onclick="toggleDay(this)">월</span><span class="day-chip" data-day="화" onclick="toggleDay(this)">화</span><span class="day-chip" data-day="수" onclick="toggleDay(this)">수</span><span class="day-chip" data-day="목" onclick="toggleDay(this)">목</span><span class="day-chip" data-day="금" onclick="toggleDay(this)">금</span><span class="day-chip" data-day="토" onclick="toggleDay(this)">토</span><span class="day-chip" data-day="일" onclick="toggleDay(this)">일</span>
+                </div>
+            </div>
+            <div id="sched-date-area-0" style="display:none">
+                <label style="font-size:0.85rem;margin-bottom:6px;display:block">날짜 선택:</label>
+                <input type="date" id="sched-date-0" style="width:100%;padding:10px;border:1px solid #e2e8f0;border-radius:8px;font-size:0.95rem;margin-bottom:4px">
+                <p style="font-size:0.75rem;color:#a0aec0">한 달에 한 번 등 특정 날짜 일정에 사용하세요</p>
+            </div>
+            <div class="form-row" style="margin-top:8px"><button class="btn btn-primary" onclick="addSchedule(0)">추가하기</button></div>
+        </div>
+    </div>
+
+    <div class="section">
+        <div class="section-title">📝 숙제 체크리스트 <button class="btn btn-sm btn-primary parent-only" onclick="toggleHwForm(0)" style="margin-left:auto">+ 추가</button></div>
+        <div class="day-filter" id="hw-day-filter-0"></div>
+        <div id="hw-list-0"></div>
+        <div class="parent-only" id="hw-form-0" style="display:none">
+            <div class="add-schedule-form">
+                <div class="form-row"><input type="text" id="hw-input-0" placeholder="숙제 내용 (예: 수학 25~30쪽)" style="flex:1"></div>
+                <label style="font-size:0.85rem;margin-bottom:6px;display:block">요일 선택:</label>
+                <div class="day-selector" id="hw-day-selector-0">
+                    <span class="day-chip" data-day="월" onclick="toggleDay(this)">월</span><span class="day-chip" data-day="화" onclick="toggleDay(this)">화</span><span class="day-chip" data-day="수" onclick="toggleDay(this)">수</span><span class="day-chip" data-day="목" onclick="toggleDay(this)">목</span><span class="day-chip" data-day="금" onclick="toggleDay(this)">금</span><span class="day-chip" data-day="토" onclick="toggleDay(this)">토</span><span class="day-chip" data-day="일" onclick="toggleDay(this)">일</span>
+                </div>
+                <div class="form-row" style="margin-top:8px"><button class="btn btn-primary" onclick="addHomework(0)">추가하기</button></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="section">
+        <div class="section-title">📋 오늘의 기록</div>
+        <div id="log-list-0"></div>
+    </div>
+</div>
+
+<!-- 아이 2 패널 -->
+<div class="child-panel" id="panel-1">
+    <div class="section">
+        <div class="section-title">어디에 있나요?</div>
+        <div class="checkin-buttons">
+            <button class="checkin-btn" onclick="checkIn(1,'home',this)"><span class="icon">🏠</span><span class="label">집 도착</span></button>
+            <button class="checkin-btn" onclick="checkIn(1,'school',this)"><span class="icon">🏫</span><span class="label">학교</span></button>
+            <button class="checkin-btn" onclick="checkIn(1,'academy',this)"><span class="icon">📚</span><span class="label">학원</span></button>
+            <button class="checkin-btn" onclick="checkIn(1,'moving',this)"><span class="icon">🚌</span><span class="label">이동중</span></button>
+            <button class="checkin-btn" onclick="checkInOther(1,this)"><span class="icon">📍</span><span class="label">기타</span></button>
+            <button class="call-parent-btn" onclick="callParent(1)"><span class="icon">🔔</span><span class="label">부모님 호출</span></button>
+        </div>
+
+        <div class="subsection-label">지금 뭐하고 있어요?</div>
+        <div class="activity-buttons">
+            <button class="activity-btn" onclick="setActivity(1,'숙제하고 있어요',this)"><span class="icon">📝</span><span class="label">숙제</span></button>
+            <button class="activity-btn" onclick="setActivity(1,'놀고 있어요',this)"><span class="icon">🎮</span><span class="label">놀고 있어요</span></button>
+            <button class="activity-btn" onclick="setActivity(1,'밥 먹고 있어요',this)"><span class="icon">🍚</span><span class="label">밥 먹는 중</span></button>
+            <button class="activity-btn" onclick="setActivity(1,'수업 중이에요',this)"><span class="icon">✏️</span><span class="label">수업 중</span></button>
+            <button class="activity-btn" onclick="setActivity(1,'쉬고 있어요',this)"><span class="icon">😴</span><span class="label">쉬는 중</span></button>
+            <button class="activity-btn" onclick="setActivityOther(1,this)"><span class="icon">💬</span><span class="label">직접 입력</span></button>
+        </div>
+    </div>
+
+    <div class="section">
+        <div class="section-title">📅 시간표 <button class="btn btn-sm btn-primary parent-only" onclick="toggleScheduleForm(1)" style="margin-left:auto">+ 추가</button></div>
+        <div class="day-filter" id="day-filter-1"></div>
+        <table class="timetable"><thead><tr><th>시간</th><th>일정</th><th>장소</th><th class="parent-only"></th></tr></thead><tbody id="timetable-body-1"></tbody></table>
+        <div class="add-schedule-form parent-only" id="schedule-form-1" style="display:none">
+            <div class="form-row">
+                <select id="sched-start-h-1" class="time-select"><option value="">시</option></select>
+                <span style="line-height:2.5">:</span>
+                <select id="sched-start-m-1" class="time-select"><option value="">분</option></select>
+                <span style="line-height:2.5;margin:0 4px">~</span>
+                <select id="sched-end-h-1" class="time-select"><option value="">시</option></select>
+                <span style="line-height:2.5">:</span>
+                <select id="sched-end-m-1" class="time-select"><option value="">분</option></select>
+            </div>
+            <div class="form-row"><input type="text" id="sched-name-1" placeholder="일정 이름 (예: 영어학원)" style="flex:1"></div>
+            <div class="form-row"><input type="text" id="sched-place-1" placeholder="장소 (예: 학원)" style="flex:1"></div>
+            <div style="margin-bottom:8px">
+                <label style="font-size:0.85rem;margin-bottom:6px;display:block">반복 방식:</label>
+                <div class="form-row">
+                    <button class="btn btn-sm sched-type-btn active" id="sched-type-weekly-1" onclick="setSchedType(1,'weekly')">매주 반복</button>
+                    <button class="btn btn-sm sched-type-btn" id="sched-type-date-1" onclick="setSchedType(1,'date')">특정 날짜</button>
+                </div>
+            </div>
+            <div id="sched-weekly-area-1">
+                <label style="font-size:0.85rem;margin-bottom:6px;display:block">요일 선택:</label>
+                <div class="day-selector" id="day-selector-1">
+                    <span class="day-chip" data-day="월" onclick="toggleDay(this)">월</span><span class="day-chip" data-day="화" onclick="toggleDay(this)">화</span><span class="day-chip" data-day="수" onclick="toggleDay(this)">수</span><span class="day-chip" data-day="목" onclick="toggleDay(this)">목</span><span class="day-chip" data-day="금" onclick="toggleDay(this)">금</span><span class="day-chip" data-day="토" onclick="toggleDay(this)">토</span><span class="day-chip" data-day="일" onclick="toggleDay(this)">일</span>
+                </div>
+            </div>
+            <div id="sched-date-area-1" style="display:none">
+                <label style="font-size:0.85rem;margin-bottom:6px;display:block">날짜 선택:</label>
+                <input type="date" id="sched-date-1" style="width:100%;padding:10px;border:1px solid #e2e8f0;border-radius:8px;font-size:0.95rem;margin-bottom:4px">
+                <p style="font-size:0.75rem;color:#a0aec0">한 달에 한 번 등 특정 날짜 일정에 사용하세요</p>
+            </div>
+            <div class="form-row" style="margin-top:8px"><button class="btn btn-primary" onclick="addSchedule(1)">추가하기</button></div>
+        </div>
+    </div>
+
+    <div class="section">
+        <div class="section-title">📝 숙제 체크리스트 <button class="btn btn-sm btn-primary parent-only" onclick="toggleHwForm(1)" style="margin-left:auto">+ 추가</button></div>
+        <div class="day-filter" id="hw-day-filter-1"></div>
+        <div id="hw-list-1"></div>
+        <div class="parent-only" id="hw-form-1" style="display:none">
+            <div class="add-schedule-form">
+                <div class="form-row"><input type="text" id="hw-input-1" placeholder="숙제 내용 (예: 영어 단어 외우기)" style="flex:1"></div>
+                <label style="font-size:0.85rem;margin-bottom:6px;display:block">요일 선택:</label>
+                <div class="day-selector" id="hw-day-selector-1">
+                    <span class="day-chip" data-day="월" onclick="toggleDay(this)">월</span><span class="day-chip" data-day="화" onclick="toggleDay(this)">화</span><span class="day-chip" data-day="수" onclick="toggleDay(this)">수</span><span class="day-chip" data-day="목" onclick="toggleDay(this)">목</span><span class="day-chip" data-day="금" onclick="toggleDay(this)">금</span><span class="day-chip" data-day="토" onclick="toggleDay(this)">토</span><span class="day-chip" data-day="일" onclick="toggleDay(this)">일</span>
+                </div>
+                <div class="form-row" style="margin-top:8px"><button class="btn btn-primary" onclick="addHomework(1)">추가하기</button></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="section">
+        <div class="section-title">📋 오늘의 기록</div>
+        <div id="log-list-1"></div>
+    </div>
+</div>
+
+<!-- 전체 캘린더 -->
+<div class="child-panel" id="panel-2">
+    <div class="section">
+        <div class="section-title">📆 전체 캘린더</div>
+        <div class="cal-nav">
+            <button class="cal-nav-btn" onclick="calPrev()">&lt;</button>
+            <div class="cal-month-label" id="cal-month-label"></div>
+            <button class="cal-nav-btn" onclick="calNext()">&gt;</button>
+            <button class="cal-today-btn" onclick="calToday()">오늘</button>
+        </div>
+        <div id="calendar-container"></div>
+        <div class="calendar-legend">
+            <span><span class="legend-dot" style="background:#667eea"></span><span id="legend-name-0">첫째</span></span>
+            <span><span class="legend-dot" style="background:#ed64a6"></span><span id="legend-name-1">둘째</span></span>
+        </div>
+    </div>
+</div>
+
+<!-- 하단 -->
+<div class="bottom-bar">
+    <button class="btn parent-only" onclick="openSettings()" style="background:#e2e8f0;color:#718096">설정</button>
+    <button class="btn btn-danger btn-sm parent-only" onclick="clearTodayLogs()">오늘 기록 초기화</button>
+</div>
+
+<!-- 기타 장소 입력 -->
+<div class="modal-overlay" id="other-modal">
+    <div class="modal" style="max-width:320px">
+        <h2>어디에 있나요?</h2>
+        <label>장소를 적어주세요</label>
+        <input type="text" id="other-place-input" placeholder="예: 친구네 집, 도서관, 공원">
+        <div class="modal-buttons">
+            <button class="btn" onclick="closeOtherModal()" style="background:#e2e8f0">취소</button>
+            <button class="btn btn-primary" onclick="submitOtherPlace()">확인</button>
+        </div>
+    </div>
+</div>
+
+<!-- 활동 직접 입력 -->
+<div class="modal-overlay" id="activity-modal">
+    <div class="modal" style="max-width:320px">
+        <h2>지금 뭐하고 있어요?</h2>
+        <label>직접 적어주세요</label>
+        <input type="text" id="activity-input" placeholder="예: 책 읽고 있어요, 그림 그리는 중">
+        <div class="modal-buttons">
+            <button class="btn" onclick="closeActivityModal()" style="background:#e2e8f0">취소</button>
+            <button class="btn btn-primary" onclick="submitActivityOther()">확인</button>
+        </div>
+    </div>
+</div>
+
+<!-- 비밀번호 모달 -->
+<div class="modal-overlay" id="pin-modal">
+    <div class="modal" style="max-width:320px;text-align:center">
+        <h2>부모님 비밀번호</h2>
+        <p class="hint" id="pin-hint">비밀번호 4자리를 눌러주세요</p>
+        <div class="pin-dots" id="pin-dots">
+            <div class="pin-dot"></div><div class="pin-dot"></div><div class="pin-dot"></div><div class="pin-dot"></div>
+        </div>
+        <div class="pin-pad">
+            <button class="pin-key" onclick="pinInput('1')">1</button>
+            <button class="pin-key" onclick="pinInput('2')">2</button>
+            <button class="pin-key" onclick="pinInput('3')">3</button>
+            <button class="pin-key" onclick="pinInput('4')">4</button>
+            <button class="pin-key" onclick="pinInput('5')">5</button>
+            <button class="pin-key" onclick="pinInput('6')">6</button>
+            <button class="pin-key" onclick="pinInput('7')">7</button>
+            <button class="pin-key" onclick="pinInput('8')">8</button>
+            <button class="pin-key" onclick="pinInput('9')">9</button>
+            <button class="pin-key empty"></button>
+            <button class="pin-key" onclick="pinInput('0')">0</button>
+            <button class="pin-key" onclick="pinDelete()" style="font-size:1rem">⌫</button>
+        </div>
+        <div class="modal-buttons" style="justify-content:center;margin-top:16px">
+            <button class="btn" onclick="closePinModal()" style="background:#e2e8f0">취소</button>
+        </div>
+    </div>
+</div>
+
+<!-- 비밀번호 설정 모달 -->
+<div class="modal-overlay" id="pin-setup-modal">
+    <div class="modal" style="max-width:320px;text-align:center">
+        <h2>부모님 비밀번호 만들기</h2>
+        <p class="hint">아이가 부모님 모드를 못 열게<br>비밀번호 4자리를 정해주세요</p>
+        <div class="pin-dots" id="setup-pin-dots">
+            <div class="pin-dot"></div><div class="pin-dot"></div><div class="pin-dot"></div><div class="pin-dot"></div>
+        </div>
+        <p class="hint" id="setup-pin-step" style="font-weight:600;color:#667eea">비밀번호 입력</p>
+        <div class="pin-pad">
+            <button class="pin-key" onclick="setupPinInput('1')">1</button>
+            <button class="pin-key" onclick="setupPinInput('2')">2</button>
+            <button class="pin-key" onclick="setupPinInput('3')">3</button>
+            <button class="pin-key" onclick="setupPinInput('4')">4</button>
+            <button class="pin-key" onclick="setupPinInput('5')">5</button>
+            <button class="pin-key" onclick="setupPinInput('6')">6</button>
+            <button class="pin-key" onclick="setupPinInput('7')">7</button>
+            <button class="pin-key" onclick="setupPinInput('8')">8</button>
+            <button class="pin-key" onclick="setupPinInput('9')">9</button>
+            <button class="pin-key empty"></button>
+            <button class="pin-key" onclick="setupPinInput('0')">0</button>
+            <button class="pin-key" onclick="setupPinDelete()" style="font-size:1rem">⌫</button>
+        </div>
+        <div class="modal-buttons" style="justify-content:center;margin-top:16px">
+            <button class="btn" onclick="closePinSetupModal()" style="background:#e2e8f0">취소</button>
+        </div>
+    </div>
+</div>
+
+<!-- 날짜 상세 모달 -->
+<div class="modal-overlay" id="day-detail-modal">
+    <div class="modal" style="max-width:380px">
+        <div class="day-detail-title" id="day-detail-title"></div>
+        <div id="day-detail-content"></div>
+        <div class="modal-buttons" style="justify-content:center;margin-top:12px">
+            <button class="btn" onclick="closeDayDetail()" style="background:#e2e8f0">닫기</button>
+        </div>
+    </div>
+</div>
+
+<!-- 일정 수정 모달 -->
+<div class="modal-overlay" id="edit-schedule-modal">
+    <div class="modal" style="max-width:380px">
+        <h2>일정 수정</h2>
+        <label>시작 시간</label>
+        <div style="display:flex;gap:4px;align-items:center;margin-bottom:12px">
+            <select id="edit-start-h" class="time-select" style="flex:1"></select>
+            <span>:</span>
+            <select id="edit-start-m" class="time-select" style="flex:1"></select>
+            <span style="margin:0 4px">~</span>
+            <select id="edit-end-h" class="time-select" style="flex:1"></select>
+            <span>:</span>
+            <select id="edit-end-m" class="time-select" style="flex:1"></select>
+        </div>
+        <label>일정 이름</label>
+        <input type="text" id="edit-sched-name" placeholder="일정 이름">
+        <label>장소</label>
+        <input type="text" id="edit-sched-place" placeholder="장소">
+        <div id="edit-weekly-area">
+            <label>요일 선택</label>
+            <div class="day-selector" id="edit-day-selector" style="margin-bottom:12px">
+                <span class="day-chip" data-day="월" onclick="toggleDay(this)">월</span><span class="day-chip" data-day="화" onclick="toggleDay(this)">화</span><span class="day-chip" data-day="수" onclick="toggleDay(this)">수</span><span class="day-chip" data-day="목" onclick="toggleDay(this)">목</span><span class="day-chip" data-day="금" onclick="toggleDay(this)">금</span><span class="day-chip" data-day="토" onclick="toggleDay(this)">토</span><span class="day-chip" data-day="일" onclick="toggleDay(this)">일</span>
+            </div>
+        </div>
+        <div id="edit-date-area" style="display:none">
+            <label>날짜 선택</label>
+            <input type="date" id="edit-sched-date" style="width:100%;padding:10px;border:1px solid #e2e8f0;border-radius:8px;font-size:0.95rem;margin-bottom:12px">
+        </div>
+        <div class="modal-buttons">
+            <button class="btn" onclick="closeEditSchedule()" style="background:#e2e8f0">취소</button>
+            <button class="btn btn-primary" onclick="saveEditSchedule()">저장</button>
+        </div>
+    </div>
+</div>
+
+<!-- 설정 모달 -->
+<div class="modal-overlay" id="settings-modal">
+    <div class="modal">
+        <h2>설정</h2>
+        <label>첫째 이름</label>
+        <input type="text" id="child-name-input-0" placeholder="예: 민준">
+        <label>둘째 이름</label>
+        <input type="text" id="child-name-input-1" placeholder="예: 서연">
+
+        <hr style="margin:16px 0;border:none;border-top:1px solid #e2e8f0">
+        <h2>비밀번호 변경</h2>
+        <button class="btn btn-sm btn-primary" onclick="startPinSetup()" style="margin-bottom:12px">비밀번호 다시 설정</button>
+
+        <hr style="margin:16px 0;border:none;border-top:1px solid #e2e8f0">
+        <h2>알림 설정</h2>
+        <p class="hint">
+            아이가 버튼을 누르면 부모님 폰에 알림이 와요!<br><br>
+            <strong>설정 방법:</strong><br>
+            1. 부모님 폰에 <strong>ntfy 앱</strong> 설치<br>
+            2. 아래에 채널 이름 입력 (예: uri-gage-2025)<br>
+            3. ntfy 앱에서 같은 채널 구독<br>
+            4. 아이가 버튼 누르면 알림!
+        </p>
+        <label>알림 채널 이름</label>
+        <input type="text" id="ntfy-topic-input" placeholder="예: uri-gage-2025">
+        <p class="hint">다른 사람이 못 맞출 이름으로 정하세요.</p>
+        <label>알림 테스트</label>
+        <button class="btn btn-primary btn-sm" onclick="testNotify()" style="margin-bottom:12px">테스트 알림 보내기</button>
+
+        <div class="modal-buttons">
+            <button class="btn" onclick="closeSettings()" style="background:#e2e8f0">취소</button>
+            <button class="btn btn-primary" onclick="saveSettings()">저장</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Firebase 설정
+    const firebaseConfig = {
+        apiKey: "AIzaSyB9XhQdGUWt0WIcTR0bPIZHpEixDMx8gT5s",
+        authDomain: "kids-tracker-da3be.firebaseapp.com",
+        databaseURL: "https://kids-tracker-da3be-default-rtdb.firebaseio.com",
+        projectId: "kids-tracker-da3be",
+        storageBucket: "kids-tracker-da3be.firebasestorage.app",
+        messagingSenderId: "396104919873",
+        appId: "1:396104919873:web:5780016cd39596932d0fc0"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+    const dbRef = db.ref('kidsTracker');
+
+    const STORAGE_KEY = 'kidsTracker';
+    const DAY_NAMES = ['일','월','화','수','목','금','토'];
+    const WEEKDAYS = ['월','화','수','목','금','토','일'];
+
+    function getToday() { return new Date().toISOString().split('T')[0]; }
+    function getTodayDay() { return DAY_NAMES[new Date().getDay()]; }
+
+    function fixData(d) {
+        if (!d.ntfyTopic) d.ntfyTopic = '';
+        if (!d.role) d.role = 'child';
+        if (!d.pin) d.pin = '';
+        if (!d.children) d.children = [
+            { name: '첫째', schedules: [], logs: {}, currentStatus: null, statusTime: null, statusDetail: '', currentActivity: '' },
+            { name: '둘째', schedules: [], logs: {}, currentStatus: null, statusTime: null, statusDetail: '', currentActivity: '' }
+        ];
+        d.children.forEach(c => {
+            if (!c.statusDetail) c.statusDetail = '';
+            if (!c.currentActivity) c.currentActivity = '';
+            if (!c.schedules) c.schedules = [];
+            if (!c.logs) c.logs = {};
+        });
+        return d;
+    }
+
+    function loadData() {
+        const saved = localStorage.getItem(STORAGE_KEY);
+        if (saved) {
+            return fixData(JSON.parse(saved));
+        }
+        return {
+            children: [
+                { name: '첫째', schedules: [], logs: {}, currentStatus: null, statusTime: null, statusDetail: '', currentActivity: '' },
+                { name: '둘째', schedules: [], logs: {}, currentStatus: null, statusTime: null, statusDetail: '', currentActivity: '' }
+            ],
+            ntfyTopic: '', role: 'child', pin: ''
+        };
+    }
+
+    function saveData(d) {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(d));
+        // Firebase에도 저장 (role, pin은 기기별이므로 제외)
+        const shared = JSON.parse(JSON.stringify(d));
+        delete shared.role;
+        delete shared.pin;
+        dbRef.set(shared);
+    }
+
+    // Firebase에서 다른 기기가 변경한 데이터를 실시간으로 받기
+    dbRef.on('value', (snapshot) => {
+        const remote = snapshot.val();
+        if (!remote) return;
+        // 현재 기기의 role, pin은 유지
+        const localRole = data.role;
+        const localPin = data.pin;
+        Object.assign(data, fixData(remote));
+        data.role = localRole;
+        data.pin = localPin;
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+        renderAll();
+    });
+
+    let data = loadData();
+    let currentTab = 0;
+    let selectedDayFilter = [getTodayDay(), getTodayDay()];
+    let pendingOtherChild = -1, pendingOtherBtn = null;
+    let pendingActivityChild = -1, pendingActivityBtn = null;
+
+    // ===== 모드 =====
+    function applyMode() {
+        const body = document.body;
+        const indicator = document.getElementById('mode-indicator');
+        const switchBtn = document.getElementById('mode-switch-btn');
+
+        if (data.role === 'parent') {
+            body.className = 'parent-mode';
+            indicator.textContent = '부모님 모드';
+            switchBtn.textContent = '아이 모드로 전환';
+        } else {
+            body.className = 'child-mode';
+            indicator.textContent = '아이 모드';
+            switchBtn.textContent = '부모님 모드로 전환';
+        }
+    }
+
+    function requestModeSwitch() {
+        if (data.role === 'parent') {
+            // 부모 → 아이: 바로 전환
+            data.role = 'child';
+            saveData(data);
+            applyMode();
+            renderAll();
+        } else {
+            // 아이 → 부모: 비밀번호 필요
+            if (!data.pin) {
+                // 비밀번호 미설정: 처음 설정
+                startPinSetup();
+            } else {
+                openPinModal();
+            }
+        }
+    }
+
+    // ===== PIN 입력 (잠금해제) =====
+    let pinBuffer = '';
+
+    function openPinModal() {
+        pinBuffer = '';
+        updatePinDots();
+        document.getElementById('pin-hint').textContent = '비밀번호 4자리를 눌러주세요';
+        document.getElementById('pin-hint').style.color = '#a0aec0';
+        document.getElementById('pin-modal').classList.add('show');
+    }
+
+    function closePinModal() {
+        document.getElementById('pin-modal').classList.remove('show');
+        pinBuffer = '';
+    }
+
+    function pinInput(n) {
+        if (pinBuffer.length >= 4) return;
+        pinBuffer += n;
+        updatePinDots();
+        if (pinBuffer.length === 4) {
+            if (pinBuffer === data.pin) {
+                data.role = 'parent';
+                saveData(data);
+                applyMode();
+                renderAll();
+                closePinModal();
+            } else {
+                document.getElementById('pin-hint').textContent = '틀렸어요! 다시 입력해주세요';
+                document.getElementById('pin-hint').style.color = '#e53e3e';
+                setTimeout(() => { pinBuffer = ''; updatePinDots(); }, 600);
+            }
+        }
+    }
+
+    function pinDelete() {
+        pinBuffer = pinBuffer.slice(0, -1);
+        updatePinDots();
+    }
+
+    function updatePinDots() {
+        const dots = document.querySelectorAll('#pin-dots .pin-dot');
+        dots.forEach((dot, i) => dot.classList.toggle('filled', i < pinBuffer.length));
+    }
+
+    // ===== PIN 설정 =====
+    let setupBuffer = '';
+    let setupFirstPin = '';
+    let setupStep = 1;
+
+    function startPinSetup() {
+        setupBuffer = '';
+        setupFirstPin = '';
+        setupStep = 1;
+        updateSetupDots();
+        document.getElementById('setup-pin-step').textContent = '비밀번호 입력';
+        document.getElementById('setup-pin-step').style.color = '#667eea';
+        document.getElementById('pin-setup-modal').classList.add('show');
+    }
+
+    function closePinSetupModal() {
+        document.getElementById('pin-setup-modal').classList.remove('show');
+    }
+
+    function setupPinInput(n) {
+        if (setupBuffer.length >= 4) return;
+        setupBuffer += n;
+        updateSetupDots();
+        if (setupBuffer.length === 4) {
+            if (setupStep === 1) {
+                setupFirstPin = setupBuffer;
+                setupStep = 2;
+                setupBuffer = '';
+                document.getElementById('setup-pin-step').textContent = '한 번 더 입력해주세요';
+                setTimeout(updateSetupDots, 100);
+            } else {
+                if (setupBuffer === setupFirstPin) {
+                    data.pin = setupBuffer;
+                    data.role = 'parent';
+                    saveData(data);
+                    applyMode();
+                    renderAll();
+                    closePinSetupModal();
+                    showToast('비밀번호가 설정됐어요!');
+                } else {
+                    document.getElementById('setup-pin-step').textContent = '일치하지 않아요! 처음부터 다시';
+                    document.getElementById('setup-pin-step').style.color = '#e53e3e';
+                    setupStep = 1;
+                    setupFirstPin = '';
+                    setTimeout(() => {
+                        setupBuffer = '';
+                        updateSetupDots();
+                        document.getElementById('setup-pin-step').textContent = '비밀번호 입력';
+                        document.getElementById('setup-pin-step').style.color = '#667eea';
+                    }, 1000);
+                }
+            }
+        }
+    }
+
+    function setupPinDelete() {
+        setupBuffer = setupBuffer.slice(0, -1);
+        updateSetupDots();
+    }
+
+    function updateSetupDots() {
+        const dots = document.querySelectorAll('#setup-pin-dots .pin-dot');
+        dots.forEach((dot, i) => dot.classList.toggle('filled', i < setupBuffer.length));
+    }
+
+    // ===== 알림 =====
+    async function sendNotification(childName, statusText, icon) {
+        if (!data.ntfyTopic) return;
+        const timeStr = new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'});
+        try {
+            await fetch('https://ntfy.sh', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    topic: data.ntfyTopic,
+                    title: icon + ' ' + childName,
+                    message: statusText + ' (' + timeStr + ')',
+                    priority: 4,
+                    tags: ['round_pushpin']
+                })
+            });
+            showToast('부모님께 알림을 보냈어요!');
+        } catch(e) { showToast('알림 전송에 실패했어요'); }
+    }
+
+    function showToast(msg) {
+        const t = document.getElementById('notify-toast');
+        t.textContent = msg; t.classList.add('show');
+        setTimeout(() => t.classList.remove('show'), 2500);
+    }
+
+    async function testNotify() {
+        const topic = document.getElementById('ntfy-topic-input').value.trim();
+        if (!topic) { alert('채널 이름을 먼저 입력해주세요!'); return; }
+        try {
+            const res = await fetch('https://ntfy.sh', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    topic: topic,
+                    title: '테스트 알림',
+                    message: '알림이 잘 도착하면 설정 완료!',
+                    priority: 3,
+                    tags: ['white_check_mark']
+                })
+            });
+            if (res.ok) alert('테스트 알림을 보냈어요! ntfy 앱을 확인해보세요.');
+            else alert('전송 실패: 채널 이름을 확인해주세요.');
+        } catch(e) { alert('전송 실패. 인터넷 연결을 확인해주세요.'); }
+    }
+
+    function updateNotifyBanner() {
+        const b = document.getElementById('notify-banner');
+        if (data.ntfyTopic) { b.textContent = '알림 연결됨: ' + data.ntfyTopic; b.className = 'notify-banner connected'; }
+        else { b.textContent = '알림이 설정되지 않았어요. 여기를 눌러 설정하세요!'; b.className = 'notify-banner'; }
+    }
+
+    // ===== 탭 =====
+    function switchTab(i) {
+        currentTab = i;
+        document.querySelectorAll('.tab-btn').forEach((b,j) => b.classList.toggle('active', j===i));
+        document.querySelectorAll('.child-panel').forEach((p,j) => p.classList.toggle('active', j===i));
+        if (i===2) renderCalendar();
+    }
+
+    // ===== 체크인 =====
+    const STATUS_MAP = {
+        home: { text: '집에 있어요', class: 'status-home', icon: '🏠' },
+        school: { text: '학교에 있어요', class: 'status-school', icon: '🏫' },
+        academy: { text: '학원에 있어요', class: 'status-academy', icon: '📚' },
+        moving: { text: '이동중이에요', class: 'status-moving', icon: '🚌' },
+        other: { text: '기타 장소', class: 'status-other', icon: '📍' }
+    };
+
+    function checkIn(ci, place, btn) {
+        const now = new Date();
+        const timeStr = now.toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'});
+        const today = getToday();
+        data.children[ci].currentStatus = place;
+        data.children[ci].statusTime = timeStr;
+        data.children[ci].statusDetail = '';
+        if (!data.children[ci].logs[today]) data.children[ci].logs[today] = [];
+        const info = STATUS_MAP[place];
+        data.children[ci].logs[today].push({ place, text: `${info.icon} ${info.text}`, time: timeStr, timestamp: now.getTime() });
+        saveData(data); renderAll();
+        sendNotification(data.children[ci].name, info.text, info.icon);
+        animateBtn(ci, btn);
+    }
+
+    function checkInOther(ci, btn) {
+        pendingOtherChild = ci; pendingOtherBtn = btn;
+        document.getElementById('other-place-input').value = '';
+        document.getElementById('other-modal').classList.add('show');
+        setTimeout(() => document.getElementById('other-place-input').focus(), 100);
+    }
+
+    function closeOtherModal() { document.getElementById('other-modal').classList.remove('show'); }
+
+    function submitOtherPlace() {
+        const place = document.getElementById('other-place-input').value.trim();
+        if (!place) { alert('장소를 입력해주세요!'); return; }
+        const ci = pendingOtherChild, btn = pendingOtherBtn;
+        const now = new Date();
+        const timeStr = now.toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'});
+        const today = getToday();
+        data.children[ci].currentStatus = 'other';
+        data.children[ci].statusTime = timeStr;
+        data.children[ci].statusDetail = place;
+        if (!data.children[ci].logs[today]) data.children[ci].logs[today] = [];
+        data.children[ci].logs[today].push({ place: 'other', text: `📍 ${place}`, time: timeStr, timestamp: now.getTime() });
+        saveData(data); renderAll();
+        sendNotification(data.children[ci].name, place, '📍');
+        animateBtn(ci, btn); closeOtherModal();
+    }
+
+    document.getElementById('other-place-input').addEventListener('keydown', e => { if(e.key==='Enter') submitOtherPlace(); });
+
+    // ===== 활동 상태 =====
+    function setActivity(ci, activity, btn) {
+        const now = new Date();
+        const timeStr = now.toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'});
+        const today = getToday();
+        data.children[ci].currentActivity = activity;
+        if (!data.children[ci].logs[today]) data.children[ci].logs[today] = [];
+        data.children[ci].logs[today].push({ place: 'activity', text: `💬 ${activity}`, time: timeStr, timestamp: now.getTime() });
+        saveData(data); renderAll();
+        sendNotification(data.children[ci].name, activity, '💬');
+        animateActivityBtn(ci, btn);
+    }
+
+    function setActivityOther(ci, btn) {
+        pendingActivityChild = ci; pendingActivityBtn = btn;
+        document.getElementById('activity-input').value = '';
+        document.getElementById('activity-modal').classList.add('show');
+        setTimeout(() => document.getElementById('activity-input').focus(), 100);
+    }
+
+    function closeActivityModal() { document.getElementById('activity-modal').classList.remove('show'); }
+
+    function submitActivityOther() {
+        const text = document.getElementById('activity-input').value.trim();
+        if (!text) { alert('뭐하고 있는지 적어주세요!'); return; }
+        setActivity(pendingActivityChild, text, pendingActivityBtn);
+        closeActivityModal();
+    }
+
+    document.getElementById('activity-input').addEventListener('keydown', e => { if(e.key==='Enter') submitActivityOther(); });
+
+    function animateBtn(ci, btn) {
+        if (!btn) return;
+        const p = document.getElementById(`panel-${ci}`);
+        p.querySelectorAll('.checkin-btn').forEach(b => b.classList.remove('checked'));
+        btn.classList.add('checked');
+        setTimeout(() => btn.classList.remove('checked'), 1500);
+    }
+
+    function animateActivityBtn(ci, btn) {
+        if (!btn) return;
+        const p = document.getElementById(`panel-${ci}`);
+        p.querySelectorAll('.activity-btn').forEach(b => b.classList.remove('checked'));
+        btn.classList.add('checked');
+        setTimeout(() => btn.classList.remove('checked'), 1500);
+    }
+
+    // ===== 부모님 호출 =====
+    function callParent(ci) {
+        const childName = data.children[ci].name;
+        const now = new Date();
+        const timeStr = now.toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'});
+        const today = getToday();
+
+        if (!data.children[ci].logs[today]) data.children[ci].logs[today] = [];
+        data.children[ci].logs[today].push({
+            place: 'activity', text: '🔔 부모님 호출!', time: timeStr, timestamp: now.getTime()
+        });
+        saveData(data); renderLogs(ci);
+        sendNotification(childName, '부모님을 호출했어요!', '🔔');
+    }
+
+    // ===== 시간표 =====
+    function toggleScheduleForm(ci) {
+        const f = document.getElementById(`schedule-form-${ci}`);
+        f.style.display = f.style.display === 'none' ? 'block' : 'none';
+    }
+
+    function toggleDay(el) { el.classList.toggle('selected'); }
+
+    // 시간 드롭다운 옵션 채우기
+    function initTimeSelects() {
+        document.querySelectorAll('.time-select').forEach(sel => {
+            const isHour = sel.id.includes('-h-');
+            if (isHour) {
+                for (let h = 0; h <= 23; h++) {
+                    const opt = document.createElement('option');
+                    opt.value = String(h).padStart(2, '0');
+                    opt.textContent = String(h).padStart(2, '0');
+                    sel.appendChild(opt);
+                }
+            } else {
+                for (let m = 0; m <= 50; m += 10) {
+                    const opt = document.createElement('option');
+                    opt.value = String(m).padStart(2, '0');
+                    opt.textContent = String(m).padStart(2, '0');
+                    sel.appendChild(opt);
+                }
+            }
+        });
+    }
+    initTimeSelects();
+
+    function getTimeFromSelects(ci, prefix) {
+        const h = document.getElementById(`sched-${prefix}-h-${ci}`).value;
+        const m = document.getElementById(`sched-${prefix}-m-${ci}`).value;
+        if (!h || !m) return '';
+        return h + ':' + m;
+    }
+
+    function resetTimeSelects(ci) {
+        ['start-h', 'start-m', 'end-h', 'end-m'].forEach(k => {
+            document.getElementById(`sched-${k}-${ci}`).selectedIndex = 0;
+        });
+    }
+
+    let schedType = ['weekly', 'weekly']; // 각 아이별 현재 선택된 타입
+
+    function setSchedType(ci, type) {
+        schedType[ci] = type;
+        document.getElementById(`sched-type-weekly-${ci}`).classList.toggle('active', type === 'weekly');
+        document.getElementById(`sched-type-date-${ci}`).classList.toggle('active', type === 'date');
+        document.getElementById(`sched-weekly-area-${ci}`).style.display = type === 'weekly' ? '' : 'none';
+        document.getElementById(`sched-date-area-${ci}`).style.display = type === 'date' ? '' : 'none';
+    }
+
+    function addSchedule(ci) {
+        const start = getTimeFromSelects(ci, 'start');
+        const end = getTimeFromSelects(ci, 'end');
+        const name = document.getElementById(`sched-name-${ci}`).value.trim();
+        const place = document.getElementById(`sched-place-${ci}`).value.trim();
+
+        if (!start || !name) { alert('시작 시간과 일정 이름을 입력해주세요!'); return; }
+
+        if (schedType[ci] === 'weekly') {
+            const days = []; document.querySelectorAll(`#day-selector-${ci} .day-chip.selected`).forEach(c => days.push(c.dataset.day));
+            if (!days.length) { alert('요일을 선택해주세요!'); return; }
+            data.children[ci].schedules.push({ id: Date.now(), start, end, name, place, days, type: 'weekly', alarm: true });
+        } else {
+            const dateVal = document.getElementById(`sched-date-${ci}`).value;
+            if (!dateVal) { alert('날짜를 선택해주세요!'); return; }
+            data.children[ci].schedules.push({ id: Date.now(), start, end, name, place, date: dateVal, type: 'date', alarm: true });
+        }
+
+        saveData(data); renderTimetable(ci);
+        resetTimeSelects(ci);
+        document.getElementById(`sched-name-${ci}`).value = '';
+        document.getElementById(`sched-place-${ci}`).value = '';
+        document.querySelectorAll(`#day-selector-${ci} .day-chip`).forEach(c => c.classList.remove('selected'));
+        if (schedType[ci] === 'date') document.getElementById(`sched-date-${ci}`).value = '';
+        document.getElementById(`schedule-form-${ci}`).style.display = 'none';
+    }
+
+    function toggleSchedAlarm(ci, schedId) {
+        const s = data.children[ci].schedules.find(x => x.id === schedId);
+        if (!s) return;
+        s.alarm = s.alarm === false ? true : false;
+        saveData(data); renderTimetable(ci);
+        showToast(s.alarm ? '알람 켜짐 🔔' : '알람 꺼짐 🔕');
+    }
+
+    function deleteSchedule(ci, id) {
+        if (!confirm('이 일정을 삭제할까요?')) return;
+        data.children[ci].schedules = data.children[ci].schedules.filter(s => s.id !== id);
+        saveData(data); renderTimetable(ci);
+    }
+
+    function renderDayFilter(ci) {
+        document.getElementById(`day-filter-${ci}`).innerHTML = DAY_NAMES.map(day => {
+            const active = selectedDayFilter[ci] === day;
+            const today = day === getTodayDay();
+            return `<button class="day-filter-btn ${active?'active':''}" onclick="filterDay(${ci},'${day}')" style="${today?'font-weight:800':''}">${day}${today?'(오늘)':''}</button>`;
+        }).join('');
+    }
+
+    function filterDay(ci, day) { selectedDayFilter[ci] = day; renderDayFilter(ci); renderTimetable(ci); }
+
+    function renderTimetable(ci) {
+        const tbody = document.getElementById(`timetable-body-${ci}`);
+        const day = selectedDayFilter[ci];
+        const today = getToday();
+        const isParent = data.role === 'parent';
+
+        // 매주 반복: 해당 요일에 맞는 것 + 특정 날짜: 오늘 날짜이면서 해당 요일인 것
+        const scheds = data.children[ci].schedules.filter(s => {
+            if (s.type === 'date') {
+                // 특정 날짜 일정: 선택한 요일 필터의 "오늘"에만 표시
+                if (day !== getTodayDay()) return false;
+                return s.date === today;
+            }
+            // 매주 반복 (기존 데이터 호환: type 없으면 weekly)
+            return (s.days || []).includes(day);
+        }).sort((a,b) => a.start.localeCompare(b.start));
+
+        const cols = isParent ? 4 : 3;
+        if (!scheds.length) { tbody.innerHTML = `<tr><td colspan="${cols}" class="no-data">${day}요일 일정이 없습니다</td></tr>`; return; }
+
+        const now = new Date();
+        const ct = now.getHours().toString().padStart(2,'0') + ':' + now.getMinutes().toString().padStart(2,'0');
+
+        tbody.innerHTML = scheds.map(s => {
+            const cur = day === getTodayDay() && ct >= s.start && (!s.end || ct <= s.end);
+            const dateBadge = s.type === 'date' ? `<span class="date-badge">${s.date.slice(5)}</span>` : '';
+            const alarmOn = s.alarm !== false;
+            const alarmBtn = `<button class="alarm-toggle ${alarmOn?'on':''}" onclick="toggleSchedAlarm(${ci},${s.id})" title="알람 ${alarmOn?'켜짐':'꺼짐'}">${alarmOn?'🔔':'🔕'}</button>`;
+            return `<tr class="${cur?'current':''}">
+                <td class="time-col">${s.start}${s.end?'~'+s.end:''}</td>
+                <td><strong>${s.name}</strong>${dateBadge} ${alarmBtn}</td>
+                <td>${s.place||'-'}</td>
+                ${isParent ? `<td class="parent-only sched-action-btns"><button class="edit-schedule-btn" onclick="openEditSchedule(${ci},${s.id})">✎</button><button class="delete-schedule-btn" onclick="deleteSchedule(${ci},${s.id})">✕</button></td>` : ''}
+            </tr>`;
+        }).join('');
+    }
+
+    // ===== 캘린더 =====
+    // ===== 월간 캘린더 =====
+    let calYear, calMonth;
+    (function() {
+        const now = new Date();
+        calYear = now.getFullYear();
+        calMonth = now.getMonth(); // 0-based
+    })();
+
+    function calPrev() { calMonth--; if (calMonth < 0) { calMonth = 11; calYear--; } renderCalendar(); }
+    function calNext() { calMonth++; if (calMonth > 11) { calMonth = 0; calYear++; } renderCalendar(); }
+    function calToday() { const n = new Date(); calYear = n.getFullYear(); calMonth = n.getMonth(); renderCalendar(); }
+
+    function getEventsForDate(dateStr) {
+        const d = new Date(dateStr);
+        const dayName = DAY_NAMES[d.getDay()];
+        const events = [];
+        data.children.forEach((c, ci) => {
+            c.schedules.forEach(s => {
+                if (s.type === 'date') {
+                    if (s.date === dateStr) events.push({ ci, name: s.name, time: s.start, end: s.end, place: s.place });
+                } else {
+                    if ((s.days || []).includes(dayName)) events.push({ ci, name: s.name, time: s.start, end: s.end, place: s.place });
+                }
+            });
+        });
+        events.sort((a, b) => a.time.localeCompare(b.time));
+        return events;
+    }
+
+    function renderCalendar() {
+        const container = document.getElementById('calendar-container');
+        const todayStr = getToday();
+        const MONTH_NAMES = ['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'];
+
+        document.getElementById('cal-month-label').textContent = `${calYear}년 ${MONTH_NAMES[calMonth]}`;
+
+        // 이번 달 1일, 마지막 날
+        const firstDay = new Date(calYear, calMonth, 1);
+        const lastDay = new Date(calYear, calMonth + 1, 0);
+        const startDow = firstDay.getDay(); // 0=일
+        const totalDays = lastDay.getDate();
+
+        // 이전달 마지막 날
+        const prevLastDay = new Date(calYear, calMonth, 0).getDate();
+
+        let html = '<table class="month-calendar"><thead><tr>';
+        ['일','월','화','수','목','금','토'].forEach((d, i) => {
+            const cls = i === 0 ? ' class="sun"' : i === 6 ? ' class="sat"' : '';
+            html += `<th${cls}>${d}</th>`;
+        });
+        html += '</tr></thead><tbody>';
+
+        let dayCount = 1;
+        let nextCount = 1;
+
+        for (let week = 0; week < 6; week++) {
+            if (dayCount > totalDays) break;
+            html += '<tr>';
+            for (let dow = 0; dow < 7; dow++) {
+                let dateStr, dayNum, isOther = false;
+
+                if (week === 0 && dow < startDow) {
+                    // 이전달
+                    const pd = prevLastDay - startDow + dow + 1;
+                    const pm = calMonth === 0 ? 11 : calMonth - 1;
+                    const py = calMonth === 0 ? calYear - 1 : calYear;
+                    dateStr = `${py}-${String(pm + 1).padStart(2,'0')}-${String(pd).padStart(2,'0')}`;
+                    dayNum = pd;
+                    isOther = true;
+                } else if (dayCount > totalDays) {
+                    // 다음달
+                    dateStr = `${calMonth === 11 ? calYear + 1 : calYear}-${String(calMonth === 11 ? 1 : calMonth + 2).padStart(2,'0')}-${String(nextCount).padStart(2,'0')}`;
+                    dayNum = nextCount++;
+                    isOther = true;
+                } else {
+                    dateStr = `${calYear}-${String(calMonth + 1).padStart(2,'0')}-${String(dayCount).padStart(2,'0')}`;
+                    dayNum = dayCount++;
+                }
+
+                const isToday = dateStr === todayStr;
+                const tdCls = isOther ? 'other-month' : isToday ? 'today' : '';
+                const numCls = isOther ? 'other' : (isToday ? 'today' : (dow === 0 ? 'sun' : dow === 6 ? 'sat' : ''));
+
+                html += `<td class="${tdCls}">`;
+                html += `<div class="cal-day-num ${numCls}">${dayNum}</div>`;
+
+                if (!isOther) {
+                    const events = getEventsForDate(dateStr);
+                    events.slice(0, 3).forEach(ev => {
+                        html += `<div class="cal-event child-${ev.ci}"><span class="cal-name">${ev.name}</span></div>`;
+                    });
+                    if (events.length > 3) {
+                        html += `<div style="font-size:0.6rem;color:#a0aec0;padding-left:4px">+${events.length - 3}개</div>`;
+                    }
+                }
+
+                // 클릭 가능하게
+                if (!isOther) {
+                    html = html.replace(`<td class="${tdCls}">`, `<td class="${tdCls} clickable" onclick="openDayDetail('${dateStr}')">`);
+                }
+
+                html += '</td>';
+            }
+            html += '</tr>';
+        }
+
+        html += '</tbody></table>';
+        container.innerHTML = html;
+        document.getElementById('legend-name-0').textContent = data.children[0].name;
+        document.getElementById('legend-name-1').textContent = data.children[1].name;
+    }
+
+    // ===== 기록 =====
+    function renderLogs(ci) {
+        const container = document.getElementById(`log-list-${ci}`);
+        const logs = data.children[ci].logs[getToday()] || [];
+        if (!logs.length) { container.innerHTML = '<div class="no-data">아직 오늘 기록이 없어요</div>'; return; }
+        container.innerHTML = [...logs].reverse().map(l => {
+            const dc = l.place==='home'?'home':l.place==='academy'?'academy':l.place==='school'?'school':l.place==='moving'?'moving':l.place==='activity'?'activity':'other';
+            return `<div class="log-item"><div class="log-dot ${dc}"></div><div class="log-text">${l.text}</div><div class="log-time">${l.time}</div></div>`;
+        }).join('');
+    }
+
+    // ===== 상태 =====
+    function renderStatus() {
+        data.children.forEach((c, i) => {
+            document.getElementById(`status-name-${i}`).textContent = c.name;
+            document.getElementById(`tab-name-${i}`).textContent = c.name;
+            const badge = document.getElementById(`status-badge-${i}`);
+            const timeEl = document.getElementById(`status-time-${i}`);
+            const actEl = document.getElementById(`status-activity-${i}`);
+
+            if (c.currentStatus && STATUS_MAP[c.currentStatus]) {
+                const info = STATUS_MAP[c.currentStatus];
+                badge.textContent = (c.currentStatus === 'other' && c.statusDetail) ? `📍 ${c.statusDetail}` : info.text;
+                badge.className = `status ${info.class}`;
+                timeEl.textContent = c.statusTime ? `${c.statusTime} 부터` : '';
+            } else {
+                badge.textContent = '상태 없음'; badge.className = 'status status-unknown'; timeEl.textContent = '';
+            }
+            actEl.textContent = c.currentActivity ? `💬 ${c.currentActivity}` : '';
+        });
+    }
+
+    // ===== 설정 =====
+    function openSettings() {
+        if (data.role !== 'parent') { showToast('부모님 모드에서만 설정할 수 있어요'); return; }
+        data.children.forEach((c,i) => document.getElementById(`child-name-input-${i}`).value = c.name);
+        document.getElementById('ntfy-topic-input').value = data.ntfyTopic || '';
+        document.getElementById('settings-modal').classList.add('show');
+    }
+    function closeSettings() { document.getElementById('settings-modal').classList.remove('show'); }
+    function saveSettings() {
+        data.children.forEach((c,i) => { const n = document.getElementById(`child-name-input-${i}`).value.trim(); if(n) c.name = n; });
+        data.ntfyTopic = document.getElementById('ntfy-topic-input').value.trim();
+        saveData(data); renderAll(); updateNotifyBanner(); closeSettings();
+    }
+
+    function clearTodayLogs() {
+        if (!confirm('오늘 기록을 모두 지울까요?')) return;
+        const today = getToday();
+        data.children.forEach(c => { c.logs[today] = []; c.currentStatus = null; c.statusTime = null; c.statusDetail = ''; c.currentActivity = ''; });
+        saveData(data); renderAll();
+    }
+
+    // ===== 숙제 체크리스트 =====
+    let hwDayFilter = [getTodayDay(), getTodayDay()];
+
+    function ensureHomework(ci) {
+        if (!data.children[ci].homework) data.children[ci].homework = [];
+    }
+
+    function renderHwDayFilter(ci) {
+        document.getElementById(`hw-day-filter-${ci}`).innerHTML = DAY_NAMES.map(day => {
+            const active = hwDayFilter[ci] === day;
+            const today = day === getTodayDay();
+            return `<button class="day-filter-btn ${active?'active':''}" onclick="filterHwDay(${ci},'${day}')" style="${today?'font-weight:800':''}">${day}${today?'(오늘)':''}</button>`;
+        }).join('');
+    }
+
+    function filterHwDay(ci, day) { hwDayFilter[ci] = day; renderHwDayFilter(ci); renderHomework(ci); }
+
+    function toggleHwForm(ci) {
+        const f = document.getElementById(`hw-form-${ci}`);
+        f.style.display = f.style.display === 'none' ? 'block' : 'none';
+        if (f.style.display === 'block') document.getElementById(`hw-input-${ci}`).focus();
+    }
+
+    function addHomework(ci) {
+        const input = document.getElementById(`hw-input-${ci}`);
+        const text = input.value.trim();
+        if (!text) { alert('숙제 내용을 입력해주세요!'); return; }
+
+        const days = [];
+        document.querySelectorAll(`#hw-day-selector-${ci} .day-chip.selected`).forEach(c => days.push(c.dataset.day));
+        if (!days.length) { alert('요일을 선택해주세요!'); return; }
+
+        ensureHomework(ci);
+        data.children[ci].homework.push({ id: Date.now(), text, days });
+        input.value = '';
+        document.querySelectorAll(`#hw-day-selector-${ci} .day-chip`).forEach(c => c.classList.remove('selected'));
+        document.getElementById(`hw-form-${ci}`).style.display = 'none';
+        saveData(data); renderHomework(ci);
+    }
+
+    document.getElementById('hw-input-0').addEventListener('keydown', e => { if(e.key==='Enter') addHomework(0); });
+    document.getElementById('hw-input-1').addEventListener('keydown', e => { if(e.key==='Enter') addHomework(1); });
+
+    function isHwDoneToday(hw) {
+        const today = getToday();
+        return hw.doneByDate && hw.doneByDate[today] === true;
+    }
+
+    function getHwDoneTime(hw) {
+        const today = getToday();
+        return (hw.doneTimeByDate && hw.doneTimeByDate[today]) || '';
+    }
+
+    function toggleHomework(ci, hwId) {
+        ensureHomework(ci);
+        const hw = data.children[ci].homework.find(h => h.id === hwId);
+        if (!hw) return;
+        const today = getToday();
+        if (!hw.doneByDate) hw.doneByDate = {};
+        if (!hw.doneTimeByDate) hw.doneTimeByDate = {};
+
+        const wasDone = isHwDoneToday(hw);
+        const now = new Date();
+        const timeStr = now.toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'});
+
+        if (!wasDone) {
+            hw.doneByDate[today] = true;
+            hw.doneTimeByDate[today] = timeStr;
+            if (!data.children[ci].logs[today]) data.children[ci].logs[today] = [];
+            data.children[ci].logs[today].push({
+                place: 'activity', text: `✅ 숙제 완료: ${hw.text}`, time: timeStr, timestamp: now.getTime()
+            });
+            sendNotification(data.children[ci].name, `숙제 완료: ${hw.text}`, '✅');
+        } else {
+            delete hw.doneByDate[today];
+            delete hw.doneTimeByDate[today];
+        }
+
+        // 기존 done/doneTime 호환 제거
+        delete hw.done; delete hw.doneTime;
+
+        saveData(data); renderHomework(ci); renderLogs(ci);
+    }
+
+    function deleteHomework(ci, hwId) {
+        if (!confirm('이 숙제를 삭제할까요?')) return;
+        data.children[ci].homework = data.children[ci].homework.filter(h => h.id !== hwId);
+        saveData(data); renderHomework(ci);
+    }
+
+    function clearDoneHomework(ci) {
+        if (!confirm('완료된 숙제를 정리할까요?')) return;
+        data.children[ci].homework = data.children[ci].homework.filter(h => !isHwDoneToday(h));
+        saveData(data); renderHomework(ci);
+    }
+
+    function renderHomework(ci) {
+        ensureHomework(ci);
+        const container = document.getElementById(`hw-list-${ci}`);
+        const allList = data.children[ci].homework;
+        const isParent = data.role === 'parent';
+        const day = hwDayFilter[ci];
+
+        // 선택된 요일에 해당하는 숙제만 필터 (기존 데이터 호환: days 없으면 매일)
+        const list = allList.filter(h => !h.days || h.days.includes(day));
+
+        if (!list.length) {
+            container.innerHTML = `<div class="no-data">${day}요일 숙제가 없어요</div>`;
+            return;
+        }
+
+        const done = list.filter(h => isHwDoneToday(h)).length;
+        const total = list.length;
+        const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+        const allDone = done === total && total > 0;
+
+        let html = '<ul class="hw-list">';
+        list.forEach(h => {
+            const isDone = isHwDoneToday(h);
+            const doneTime = getHwDoneTime(h);
+            const dayTags = h.days ? `<span style="font-size:0.65rem;color:#a0aec0;margin-left:4px">${h.days.join('·')}</span>` : '';
+            html += `<li class="hw-item">
+                <div class="hw-checkbox ${isDone?'done':''}" onclick="toggleHomework(${ci},${h.id})">${isDone?'✓':''}</div>
+                <div class="hw-text ${isDone?'done':''}">${h.text}${dayTags}${doneTime ? ' <span style="font-size:0.72rem;color:#a0aec0">('+doneTime+')</span>' : ''}</div>
+                ${isParent ? `<button class="hw-delete" onclick="deleteHomework(${ci},${h.id})">✕</button>` : ''}
+            </li>`;
+        });
+        html += '</ul>';
+
+        html += `<div class="hw-progress"><div class="hw-progress-bar" style="width:${pct}%"></div></div>`;
+        html += `<div class="hw-progress-text">${done}/${total} 완료 (${pct}%)</div>`;
+
+        if (allDone) {
+            html += '<div class="hw-done-msg">숙제를 다 했어요! 잘했어요! 🎉</div>';
+        }
+
+        if (isParent && done > 0) {
+            html += `<div style="text-align:right;margin-top:6px"><button class="btn btn-sm" style="background:#e2e8f0;color:#718096" onclick="clearDoneHomework(${ci})">완료 항목 정리</button></div>`;
+        }
+
+        container.innerHTML = html;
+    }
+
+    // ===== 일정 수정 =====
+    let editingChild = -1, editingSchedId = -1;
+
+    function initEditTimeSelects() {
+        ['edit-start-h','edit-end-h'].forEach(id => {
+            const sel = document.getElementById(id);
+            sel.innerHTML = '<option value="">시</option>';
+            for (let h = 0; h <= 23; h++) {
+                const opt = document.createElement('option');
+                opt.value = String(h).padStart(2,'0');
+                opt.textContent = String(h).padStart(2,'0');
+                sel.appendChild(opt);
+            }
+        });
+        ['edit-start-m','edit-end-m'].forEach(id => {
+            const sel = document.getElementById(id);
+            sel.innerHTML = '<option value="">분</option>';
+            for (let m = 0; m <= 50; m += 10) {
+                const opt = document.createElement('option');
+                opt.value = String(m).padStart(2,'0');
+                opt.textContent = String(m).padStart(2,'0');
+                sel.appendChild(opt);
+            }
+        });
+    }
+    initEditTimeSelects();
+
+    function openEditSchedule(ci, schedId) {
+        editingChild = ci;
+        editingSchedId = schedId;
+        const s = data.children[ci].schedules.find(x => x.id === schedId);
+        if (!s) return;
+
+        // 시간 채우기
+        if (s.start) {
+            const [sh, sm] = s.start.split(':');
+            document.getElementById('edit-start-h').value = sh;
+            document.getElementById('edit-start-m').value = sm;
+        }
+        if (s.end) {
+            const [eh, em] = s.end.split(':');
+            document.getElementById('edit-end-h').value = eh;
+            document.getElementById('edit-end-m').value = em;
+        } else {
+            document.getElementById('edit-end-h').value = '';
+            document.getElementById('edit-end-m').value = '';
+        }
+
+        document.getElementById('edit-sched-name').value = s.name || '';
+        document.getElementById('edit-sched-place').value = s.place || '';
+
+        // 타입에 따라 요일/날짜 표시
+        if (s.type === 'date') {
+            document.getElementById('edit-weekly-area').style.display = 'none';
+            document.getElementById('edit-date-area').style.display = '';
+            document.getElementById('edit-sched-date').value = s.date || '';
+        } else {
+            document.getElementById('edit-weekly-area').style.display = '';
+            document.getElementById('edit-date-area').style.display = 'none';
+            document.querySelectorAll('#edit-day-selector .day-chip').forEach(c => {
+                c.classList.toggle('selected', (s.days || []).includes(c.dataset.day));
+            });
+        }
+
+        document.getElementById('edit-schedule-modal').classList.add('show');
+    }
+
+    function closeEditSchedule() {
+        document.getElementById('edit-schedule-modal').classList.remove('show');
+    }
+
+    function saveEditSchedule() {
+        const s = data.children[editingChild].schedules.find(x => x.id === editingSchedId);
+        if (!s) return;
+
+        const sh = document.getElementById('edit-start-h').value;
+        const sm = document.getElementById('edit-start-m').value;
+        if (!sh || !sm) { alert('시작 시간을 입력해주세요!'); return; }
+        s.start = sh + ':' + sm;
+
+        const eh = document.getElementById('edit-end-h').value;
+        const em = document.getElementById('edit-end-m').value;
+        s.end = (eh && em) ? eh + ':' + em : '';
+
+        const name = document.getElementById('edit-sched-name').value.trim();
+        if (!name) { alert('일정 이름을 입력해주세요!'); return; }
+        s.name = name;
+        s.place = document.getElementById('edit-sched-place').value.trim();
+
+        if (s.type === 'date') {
+            const dateVal = document.getElementById('edit-sched-date').value;
+            if (!dateVal) { alert('날짜를 선택해주세요!'); return; }
+            s.date = dateVal;
+        } else {
+            const days = [];
+            document.querySelectorAll('#edit-day-selector .day-chip.selected').forEach(c => days.push(c.dataset.day));
+            if (!days.length) { alert('요일을 선택해주세요!'); return; }
+            s.days = days;
+        }
+
+        saveData(data);
+        renderTimetable(editingChild);
+        closeEditSchedule();
+        showToast('일정이 수정됐어요!');
+    }
+
+    // ===== 날짜 상세보기 =====
+    function openDayDetail(dateStr) {
+        const d = new Date(dateStr);
+        const dayName = DAY_NAMES[d.getDay()];
+        const month = d.getMonth() + 1;
+        const day = d.getDate();
+        document.getElementById('day-detail-title').textContent = `${month}월 ${day}일 (${dayName}) 일정`;
+
+        const events = getEventsForDate(dateStr);
+        const content = document.getElementById('day-detail-content');
+
+        if (!events.length) {
+            content.innerHTML = '<div class="no-data">이 날은 일정이 없어요</div>';
+        } else {
+            content.innerHTML = events.map(ev => {
+                const childName = data.children[ev.ci].name;
+                return `<div class="day-detail-event">
+                    <div class="day-detail-dot child-${ev.ci}"></div>
+                    <div class="day-detail-info">
+                        <div class="day-detail-name">${ev.name}</div>
+                        <div class="day-detail-meta">${childName} · ${ev.time}${ev.end ? '~' + ev.end : ''} · ${ev.place || ''}</div>
+                    </div>
+                </div>`;
+            }).join('');
+        }
+
+        document.getElementById('day-detail-modal').classList.add('show');
+    }
+
+    function closeDayDetail() {
+        document.getElementById('day-detail-modal').classList.remove('show');
+    }
+
+    // ===== 시간표 시작 알람 =====
+    let sentAlarms = {}; // "ci-schedId-date" 형태로 중복 방지
+
+    function checkScheduleAlarms() {
+        if (!data.ntfyTopic) return;
+        const now = new Date();
+        const currentTime = now.getHours().toString().padStart(2,'0') + ':' + now.getMinutes().toString().padStart(2,'0');
+        const todayDay = getTodayDay();
+        const todayDate = getToday();
+
+        data.children.forEach((c, ci) => {
+            c.schedules.forEach(s => {
+                let shouldShow = false;
+                if (s.type === 'date') {
+                    shouldShow = s.date === todayDate;
+                } else {
+                    shouldShow = (s.days || []).includes(todayDay);
+                }
+
+                if (shouldShow && s.alarm !== false && s.start === currentTime) {
+                    const key = `${ci}-${s.id}-${todayDate}`;
+                    if (!sentAlarms[key]) {
+                        sentAlarms[key] = true;
+                        const childName = c.name;
+                        const msg = `${s.name} 시작! (${s.start}${s.place ? ' · ' + s.place : ''})`;
+                        fetch('https://ntfy.sh', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                topic: data.ntfyTopic,
+                                title: '⏰ ' + childName + ' 일정 시작',
+                                message: msg,
+                                priority: 4,
+                                tags: ['alarm_clock']
+                            })
+                        }).catch(() => {});
+                    }
+                }
+            });
+        });
+    }
+
+    // 매분 알람 체크
+    setInterval(checkScheduleAlarms, 60000);
+    // 앱 시작 시에도 한번 체크
+    checkScheduleAlarms();
+
+    // ===== 전체 렌더링 =====
+    function renderAll() {
+        applyMode();
+        renderStatus();
+        updateNotifyBanner();
+        [0,1].forEach(i => { renderDayFilter(i); renderTimetable(i); renderHwDayFilter(i); renderHomework(i); renderLogs(i); });
+        if (currentTab === 2) renderCalendar();
+    }
+
+    // ===== PWA =====
+    let deferredPrompt;
+    window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); deferredPrompt = e; document.getElementById('install-banner').style.display = 'flex'; });
+    document.getElementById('install-btn').addEventListener('click', async () => { if(deferredPrompt){ deferredPrompt.prompt(); await deferredPrompt.userChoice; deferredPrompt=null; document.getElementById('install-banner').style.display='none'; }});
+    function dismissInstall(e) { e.stopPropagation(); document.getElementById('install-banner').style.display = 'none'; }
+    if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js').catch(()=>{});
+
+    setInterval(() => { [0,1].forEach(i => renderTimetable(i)); }, 60000);
+    renderAll();
+</script>
+
+</body>
+</html>
